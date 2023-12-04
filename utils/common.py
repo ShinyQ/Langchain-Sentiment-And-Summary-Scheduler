@@ -1,4 +1,5 @@
 import json
+import redis
 from redis import Redis
 from langchain.cache import RedisCache
 from langchain.llms.openai import OpenAI
@@ -6,7 +7,12 @@ from langchain.globals import set_llm_cache
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationSummaryBufferMemory
-from utils.constant import OPENAI_API_KEY, MODEL_MAIN, MODEL_MEMORY, SUMMARY_MESSAGE
+from utils.constant import OPENAI_API_KEY, MODEL_MAIN, MODEL_MEMORY, SUMMARY_MESSAGE, EVENT_CODE
+
+
+def set_up_redis():
+    return redis.StrictRedis(db=1, host='localhost', port=6379, decode_responses=True)
+
 
 def set_up_cache(db=0):
     """
@@ -16,6 +22,36 @@ def set_up_cache(db=0):
         db (int): The Redis database index.
     """
     set_llm_cache(RedisCache(redis_=Redis(db=db), ttl=3600))
+
+
+def save_text_to_redis(text, sentiment=""):
+    """
+    Save text and sentiment to Redis.
+
+    Args:
+        text (str): The text to be saved.
+        sentiment (str): The sentiment associated with the text.
+    """
+    data = {"text": text, "sentiment": sentiment}
+
+    # Get existing data from Redis
+    redis_client = set_up_redis()
+    existing_data_str = redis_client.get(f"sentiment-classification:{EVENT_CODE}")
+    existing_data = json.loads(existing_data_str) if existing_data_str else []
+
+    # Check if the key (text) already exists
+    existing_text_keys = [item["text"] for item in existing_data]
+    if text in existing_text_keys:
+        # Update the existing data with the new sentiment
+        for item in existing_data:
+            if item["text"] == text:
+                item["sentiment"] = sentiment
+    else:
+        # Append the new data to the existing data
+        existing_data.append(data)
+
+    # Store the updated data in Redis
+    redis_client.set(f"sentiment-classification:{EVENT_CODE}", json.dumps(existing_data))
 
 
 def generate_model(temperature=0):

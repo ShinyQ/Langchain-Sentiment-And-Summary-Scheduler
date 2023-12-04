@@ -1,12 +1,13 @@
-from utils.common import generate_model, set_up_cache, generate_conversation_summary, generate_memory, save_memory
+from utils.common import (generate_model, set_up_cache, generate_conversation_summary, generate_memory,
+                          save_memory, set_up_redis, save_text_to_redis)
+
 from flask import Flask, request, jsonify
-from celery_config import BROKER_URL
-from celery import Celery
+from utils.constant import EVENT_CODE
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from utils.constant import EVENT_CODE
+from celery_config import BROKER_URL
+from celery import Celery
 
-import redis
 import json
 
 # Create a Flask application
@@ -17,36 +18,7 @@ celery = Celery('app', broker=BROKER_URL)
 celery.config_from_object('celery_config')
 
 # Configure Redis
-redis_client = redis.StrictRedis(db=1, host='localhost', port=6379, decode_responses=True)
-
-def save_text_to_redis(text, sentiment=""):
-    """
-    Save text and sentiment to Redis.
-
-    Args:
-        text (str): The text to be saved.
-        sentiment (str): The sentiment associated with the text.
-    """
-    data = {"text": text, "sentiment": sentiment}
-
-    # Get existing data from Redis
-    existing_data_str = redis_client.get(f"sentiment-classification:{EVENT_CODE}")
-    existing_data = json.loads(existing_data_str) if existing_data_str else []
-
-    # Check if the key (text) already exists
-    existing_text_keys = [item["text"] for item in existing_data]
-    if text in existing_text_keys:
-        # Update the existing data with the new sentiment
-        for item in existing_data:
-            if item["text"] == text:
-                item["sentiment"] = sentiment
-    else:
-        # Append the new data to the existing data
-        existing_data.append(data)
-
-    # Store the updated data in Redis
-    redis_client.set(f"sentiment-classification:{EVENT_CODE}", json.dumps(existing_data))
-
+redis_client = set_up_redis()
 
 @celery.task
 def process_sentiment_analysis(feedback):

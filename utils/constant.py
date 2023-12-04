@@ -9,7 +9,7 @@ MODEL_MAIN= "gpt-3.5-turbo"
 MODEL_MEMORY= "text-davinci-002"
 
 SYSTEM_MESSAGE = "write only sentiment of the text (neutral, positive, or negative)"
-SUMMARY_MESSAGE = "give summary based on feedback in descriptive way to the event organizer"
+SUMMARY_MESSAGE = "as event organizer give summary based on users feedback"
 
 FEEDBACKS = {
   "event-001": [
